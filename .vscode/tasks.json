@@ -1,0 +1,34 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "docker: up (debug)",
+            "type": "shell",
+            "command": "docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build -d --wait",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "docker: up",
+            "type": "shell",
+            "command": "docker compose up --build -d --wait",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        },
+        {
+            "label": "docker: logs",
+            "type": "shell",
+            "command": "docker compose logs -f --tail 100",
+            "options": { "cwd": "${workspaceFolder}" },
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "docker: down",
+            "type": "shell",
+            "command": "docker compose -f docker-compose.yml -f docker-compose.debug.yml down",
+            "options": { "cwd": "${workspaceFolder}" },
+            "problemMatcher": []
+        }
+    ]
+}

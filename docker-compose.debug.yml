@@ -1,0 +1,92 @@
+# Debug overlay: every Python service runs under debugpy so VS Code can attach ("Docker: attach ..." configs).
+#
+#   docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build -d
+#
+# Source folders are bind-mounted so breakpoints match your working copy; restart a service to pick up changes
+# (docker compose ... restart api). Processes do NOT wait for the debugger; attach any time.
+#
+#   service    app port   debugpy (host)
+#   upstreams  9100       5679
+#   api        8000       5678
+#   mcp        8001       5680
+#   chat       8100       5681
+#   webhook-receiver 8200 5682
+
+x-debug-build: &debug-build
+  context: .
+  target: debug
+
+x-source-mounts: &source-mounts
+  - ./src:/app/src
+  - ./mcp_server:/app/mcp_server
+  - ./chat_backend:/app/chat_backend
+  - ./mock_data:/app/mock_data
+
+services:
+  upstreams:
+    build: *debug-build
+    image: entitlement-platform:debug
+    command: ["python", "-m", "debugpy", "--listen", "0.0.0.0:5678",
+              "-m", "uvicorn", "--factory", "src.upstreams.mock_app:create_mock_upstream_app",
+              "--host", "0.0.0.0", "--port", "9000"]
+    ports:
+      - "5679:5678"
+    volumes: *source-mounts
+
+  api:
+    build: *debug-build
+    image: entitlement-platform:debug
+    command: ["python", "-m", "debugpy", "--listen", "0.0.0.0:5678",
+              "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "5678:5678"
+    environment:
+      PLATFORM_LOG_LEVEL: DEBUG
+    volumes:
+      - ./src:/app/src
+      - ./mcp_server:/app/mcp_server
+      - ./chat_backend:/app/chat_backend
+      - ./mock_data:/app/mock_data
+      - platform-data:/app/data
+      - platform-logs:/app/logs
+
+  mcp:
+    build: *debug-build
+    image: entitlement-platform:debug
+    command: ["python", "-m", "debugpy", "--listen", "0.0.0.0:5678",
+              "-m", "mcp_server.server", "--transport", "http", "--host", "0.0.0.0", "--port", "8001"]
+    ports:
+      - "5680:5678"
+    volumes:
+      - ./src:/app/src
+      - ./mcp_server:/app/mcp_server
+      - ./chat_backend:/app/chat_backend
+      - ./mock_data:/app/mock_data
+      - platform-logs:/app/logs
+
+  chat:
+    build: *debug-build
+    image: entitlement-platform:debug
+    # debugpy also follows the per-request `python -m mcp_server.server` stdio subprocess (subProcess default).
+    command: ["python", "-m", "debugpy", "--listen", "0.0.0.0:5678",
+              "-m", "uvicorn", "chat_backend.app:app", "--host", "0.0.0.0", "--port", "8100"]
+    ports:
+      - "5681:5678"
+    volumes:
+      - ./src:/app/src
+      - ./mcp_server:/app/mcp_server
+      - ./chat_backend:/app/chat_backend
+      - ./mock_data:/app/mock_data
+      - platform-logs:/app/logs
+
+  webhook-receiver:
+    build: *debug-build
+    image: entitlement-platform:debug
+    command: ["python", "-m", "debugpy", "--listen", "0.0.0.0:5678",
+              "-m", "uvicorn", "webhook_receiver.main:app", "--host", "0.0.0.0", "--port", "8200",
+              "--timeout-graceful-shutdown", "3"]   # open notification streams must not delay a stop
+    ports:
+      - "5682:5678"
+    volumes:
+      - ./webhook_receiver:/app/webhook_receiver
+      - receiver-data:/app/data

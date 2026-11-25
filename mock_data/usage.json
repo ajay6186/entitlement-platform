@@ -1,0 +1,9 @@
+[
+  {"account_id": "ACC-007", "metric_date": "2026-11-22", "protected_tb": 412.5, "api_calls": 1203331, "active_users": 87},
+  {"account_id": "ACC-012", "metric_date": "2026-11-22", "protected_tb": 1290.0, "api_calls": 4410982, "active_users": 240},
+  {"account_id": "ACC-021", "metric_date": "2026-11-22", "protected_tb": 96.2, "api_calls": 220431, "active_users": 31},
+  {"account_id": "ACC-033", "metric_date": "2026-11-22", "protected_tb": 640.8, "api_calls": 2301874, "active_users": 112},
+  {"account_id": "ACC-045", "metric_date": "2026-11-22", "protected_tb": 12.4, "api_calls": 40211, "active_users": 9},
+  {"account_id": "ACC-058", "metric_date": "2026-11-22", "protected_tb": 288.1, "api_calls": 903114, "active_users": 54},
+  {"account_id": "ACC-064", "metric_date": "2026-11-22", "protected_tb": 150.0, "api_calls": 512004, "active_users": 44}
+]

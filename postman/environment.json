@@ -1,0 +1,17 @@
+{
+  "id": "8f74128f-d664-5670-afa0-f78e86bfae81",
+  "name": "Local",
+  "values": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "enabled": true
+    },
+    {
+      "key": "webhookSecret",
+      "value": "whsec_dev_only_change_me_0123456789",
+      "enabled": true
+    }
+  ],
+  "_postman_variable_scope": "environment"
+}

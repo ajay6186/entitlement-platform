@@ -1,0 +1,12 @@
+.git
+__pycache__
+**/__pycache__
+.pytest_cache
+venv
+.venv
+.vscode
+data/*.db
+logs/*.jsonl
+logs/*.log
+.env
+frontend

@@ -1,0 +1,153 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "API: uvicorn (src.main:app)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "src.main:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "8000"
+            ],
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/venv/Scripts/python.exe",
+            "envFile": "${workspaceFolder}/.env",
+            "jinja": true,
+            "justMyCode": true,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Chat backend: uvicorn (chat_backend.app:app)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "uvicorn",
+            "args": [
+                "chat_backend.app:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "8100"
+            ],
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/venv/Scripts/python.exe",
+            "envFile": "${workspaceFolder}/.env",
+            "justMyCode": true,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Tests: pytest",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "pytest",
+            "args": [
+                "-x",
+                "-q"
+            ],
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/venv/Scripts/python.exe",
+            "justMyCode": false,
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "MCP: demo",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "mcp_server.demo",
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/venv/Scripts/python.exe",
+            "envFile": "${workspaceFolder}/.env",
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "MCP: server (HTTP :8001)",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "mcp_server.server",
+            "args": [
+                "--transport",
+                "http"
+            ],
+            "cwd": "${workspaceFolder}",
+            "python": "${workspaceFolder}/venv/Scripts/python.exe",
+            "env": {
+                "MCP_DEV_PERSONA": "support_lead"
+            },
+            "console": "integratedTerminal"
+        },
+        // ---------------------------------------------------------------------------------------------
+        // Docker (attach). Separate from the local "launch" configs above: these attach to the containers
+        // started by docker-compose.yml + docker-compose.debug.yml (task "docker: up (debug)").
+        // ---------------------------------------------------------------------------------------------
+        {
+            "name": "Docker: attach API (:8000, debugpy 5678)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": { "host": "localhost", "port": 5678 },
+            "pathMappings": [{ "localRoot": "${workspaceFolder}", "remoteRoot": "/app" }],
+            "justMyCode": true,
+            "presentation": { "group": "docker", "order": 1 }
+        },
+        {
+            "name": "Docker: attach Upstreams (:9000, debugpy 5679)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": { "host": "localhost", "port": 5679 },
+            "pathMappings": [{ "localRoot": "${workspaceFolder}", "remoteRoot": "/app" }],
+            "justMyCode": true,
+            "presentation": { "group": "docker", "order": 2 }
+        },
+        {
+            "name": "Docker: attach MCP server (:8001, debugpy 5680)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": { "host": "localhost", "port": 5680 },
+            "pathMappings": [{ "localRoot": "${workspaceFolder}", "remoteRoot": "/app" }],
+            "justMyCode": true,
+            "presentation": { "group": "docker", "order": 3 }
+        },
+        {
+            "name": "Docker: attach Chat backend (:8100, debugpy 5681)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": { "host": "localhost", "port": 5681 },
+            "pathMappings": [{ "localRoot": "${workspaceFolder}", "remoteRoot": "/app" }],
+            "justMyCode": true,
+            "subProcess": true,
+            "presentation": { "group": "docker", "order": 4 }
+        },
+        {
+            "name": "Docker: attach Webhook receiver (:8200, debugpy 5682)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": { "host": "localhost", "port": 5682 },
+            "pathMappings": [{ "localRoot": "${workspaceFolder}", "remoteRoot": "/app" }],
+            "justMyCode": true,
+            "presentation": { "group": "docker", "order": 5 }
+        }
+    ],
+    "compounds": [
+        {
+            "name": "API + Chat backend",
+            "configurations": [
+                "API: uvicorn (src.main:app)",
+                "Chat backend: uvicorn (chat_backend.app:app)"
+            ]
+        },
+        {
+            "name": "Docker: up (debug) + attach all",
+            "preLaunchTask": "docker: up (debug)",
+            "configurations": [
+                "Docker: attach API (:8000, debugpy 5678)",
+                "Docker: attach Upstreams (:9000, debugpy 5679)",
+                "Docker: attach MCP server (:8001, debugpy 5680)",
+                "Docker: attach Chat backend (:8100, debugpy 5681)",
+                "Docker: attach Webhook receiver (:8200, debugpy 5682)"
+            ],
+            "presentation": { "group": "docker", "order": 0 }
+        }
+    ]
+}

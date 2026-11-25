@@ -1,0 +1,26 @@
+# Secrets: never commit. Copy .env.example to .env for local values (Docker Compose reads .env too).
+!.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+venv/
+.venv/
+
+# Runtime data (SQLite databases, audit/log output)
+data/*.db
+data/*.db-journal
+logs/*.jsonl
+logs/*.log
+
+# Frontend build output and dependencies
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# OS / editor noise (the shared .vscode launch/tasks/settings ARE committed)
+.DS_Store
+Thumbs.db

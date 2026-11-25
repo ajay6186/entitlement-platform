@@ -1,0 +1,141 @@
+# Full local stack. Services reach each other by service name on the compose network:
+#
+#   browser ──> frontend (:5173) ──(browser JS)──> chat (:8100) ──> Claude
+#                                                     │  └─ MCP over stdio (mcp_server.server) ─┐
+#   MCP hosts ──> mcp (:8001/mcp) ───────────────────────────────────────────────────────────── ├─> api (:8000) ──> upstreams (:9000)
+#                                                                                                     │
+#   api ── signed webhooks (case.escalated, case.comment_added) ──> webhook-receiver (:8200)  <── dashboard on the
+#                                                                                                 frontend's Webhooks tab
+#
+#   docker compose up --build                                           # run everything
+#   docker compose -f docker-compose.yml -f docker-compose.debug.yml up --build   # + debugpy for VS Code
+#
+# ANTHROPIC_API_KEY (and optionally CHAT_MODEL) are read from your shell or the root .env file; only `chat` gets them.
+
+x-platform-env: &platform-env
+  PLATFORM_ENV: dev
+  PLATFORM_FIXED_NOW: "2026-11-23T10:00:00Z"   # reproducible case ages / renewal windows; remove for real time
+  # Local-only demo secrets. In any shared environment inject these from a secret manager.
+  PLATFORM_JWT_SECRET: dev-only-jwt-secret-change-me-0123456789
+  PLATFORM_WEBHOOK_SIGNING_SECRET: whsec_dev_only_change_me_0123456789
+
+services:
+  upstreams:
+    build: &python-build
+      context: .
+      target: runtime
+    image: entitlement-platform:latest
+    command: ["uvicorn", "--factory", "src.upstreams.mock_app:create_mock_upstream_app",
+              "--host", "0.0.0.0", "--port", "9000"]
+    ports:
+      # Host 9100 (not 9000): Jupyter/VS Code kernels often hold 9000-9004 on Windows. Inside the compose
+      # network the service is still upstreams:9000. Swagger: http://localhost:9100/docs
+      - "${UPSTREAMS_HOST_PORT:-9100}:9000"
+    environment:
+      HEALTHCHECK_URL: http://localhost:9000/_admin/health
+    restart: unless-stopped
+
+  api:
+    build: *python-build
+    image: entitlement-platform:latest
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *platform-env
+      PLATFORM_DATABASE_URL: sqlite+aiosqlite:///./data/platform.db
+      PLATFORM_ENABLE_DEV_ENDPOINTS: "true"
+      PLATFORM_UPSTREAM_BASE_URL: http://upstreams:9000   # standalone mock systems of record
+      # Default webhook subscription -> the demo receiver service (signed with PLATFORM_WEBHOOK_SIGNING_SECRET).
+      PLATFORM_WEBHOOK_DEFAULT_SUBSCRIBER_URL: http://webhook-receiver:8200/webhooks/receive
+      PLATFORM_WEBHOOK_DEFAULT_EVENT_TYPES: '["case.escalated","case.comment_added"]'
+      PLATFORM_CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173   # React webhook dashboard
+      HEALTHCHECK_URL: http://localhost:8000/healthz
+    volumes:
+      - platform-data:/app/data
+      - platform-logs:/app/logs
+    depends_on:
+      upstreams:
+        condition: service_healthy
+      webhook-receiver:
+        condition: service_healthy
+    restart: unless-stopped
+
+  webhook-receiver:
+    # A separate "customer" system that consumes the platform's webhooks: verifies signatures, de-duplicates,
+    # keeps a history, and can simulate failures (PUT /control) to show the sender's retries.
+    build: *python-build
+    image: entitlement-platform:latest
+    command: ["uvicorn", "webhook_receiver.main:app", "--host", "0.0.0.0", "--port", "8200",
+              "--timeout-graceful-shutdown", "3"]   # open notification streams must not delay a stop
+    ports:
+      - "8200:8200"
+    environment:
+      WEBHOOK_SECRET: whsec_dev_only_change_me_0123456789   # must equal the api's PLATFORM_WEBHOOK_SIGNING_SECRET
+      RECEIVER_DB: /app/data/receiver.db
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      HEALTHCHECK_URL: http://localhost:8200/health
+    volumes:
+      - receiver-data:/app/data
+    restart: unless-stopped
+
+  mcp:
+    build: *python-build
+    image: entitlement-platform:latest
+    command: ["python", "-m", "mcp_server.server", "--transport", "http", "--host", "0.0.0.0", "--port", "8001"]
+    ports:
+      - "8001:8001"
+    environment:
+      <<: *platform-env
+      PLATFORM_BASE_URL: http://api:8000
+      MCP_DEV_PERSONA: support_lead   # streamable HTTP serves one fixed identity per process (dev only)
+    volumes:
+      - platform-logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8001), 2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  chat:
+    build: *python-build
+    image: entitlement-platform:latest
+    command: ["uvicorn", "chat_backend.app:app", "--host", "0.0.0.0", "--port", "8100"]
+    ports:
+      - "8100:8100"
+    environment:
+      <<: *platform-env
+      PLATFORM_BASE_URL: http://api:8000
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      FRONTEND_URL: http://localhost:5173   # where GET / on the chat API redirects browsers
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CHAT_MODEL: ${CHAT_MODEL:-claude-opus-5-5}
+      HEALTHCHECK_URL: http://localhost:8100/health
+    volumes:
+      - platform-logs:/app/logs
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:   # URLs the *browser* uses, so they are host ports
+        VITE_CHAT_API_URL: http://localhost:8100
+        VITE_PLATFORM_API_URL: http://localhost:8000
+        VITE_RECEIVER_URL: http://localhost:8200
+    ports:
+      - "5173:80"
+    depends_on:
+      chat:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  platform-data:
+  platform-logs:
+  receiver-data:
